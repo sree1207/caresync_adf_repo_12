@@ -52,13 +52,7 @@
 				"type": "Copy",
 				"dependsOn": [
 					{
-						"activity": "Set variable1",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					},
-					{
-						"activity": "Read table details",
+						"activity": "Check Load Type",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -76,7 +70,7 @@
 					"source": {
 						"type": "PostgreSqlV2Source",
 						"query": {
-							"value": "select * from PUBLIC.@{activity('Read table details').output.firstRow.source_table_name}",
+							"value": "select * from PUBLIC.@{activity('Read table details').output.firstRow.source_table_name}\n@{\n    if(equals(activity('Read Watermark Query').output.firstRow.load_type,'FULL'),'',\n        concat('where',activity('Read Watermark Query').output.firstRow.watermark_Column,' >','''',variables('watermark_value'),''''))\n}",
 							"type": "Expression"
 						},
 						"queryTimeout": "02:00:00"
@@ -235,10 +229,83 @@
 				}
 			},
 			{
-				"name": "If Condition1",
+				"name": "Check Load Type",
 				"type": "IfCondition",
-				"dependsOn": [],
-				"userProperties": []
+				"dependsOn": [
+					{
+						"activity": "Set variable1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Read table details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@not(equals(activity('Read table details').output.firstRow.load_type,'FULL' ))\r\n\r\n",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Read Watermark Query",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "select watermark_value from ctrl.watermark \nwhere table_id = @{pipeline().parameters.table_id}",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "DS_AzureMetadata",
+									"type": "DatasetReference"
+								}
+							}
+						},
+						{
+							"name": "Store Watermark Value",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Read Watermark Query",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "watermark_value",
+								"value": {
+									"value": "@activity('Read Watermark Query').output.firstRow.watermark_value",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
 			}
 		],
 		"parameters": {
@@ -252,6 +319,9 @@
 		},
 		"variables": {
 			"start_time": {
+				"type": "String"
+			},
+			"watermark_value": {
 				"type": "String"
 			}
 		},
