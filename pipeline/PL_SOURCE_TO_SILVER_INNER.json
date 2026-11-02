@@ -184,6 +184,14 @@
 						"table_name": {
 							"value": "@activity('Read table details').output.firstRow.bronze_table_name",
 							"type": "Expression"
+						},
+						"merge_keys": {
+							"value": "@coalesce(activity('Read table details').output.firstRow.merge_keys,\r\n    '')\r\n    \r\n",
+							"type": "Expression"
+						},
+						"load_type": {
+							"value": "@activity('Read table details').output.firstRow.load_type",
+							"type": "Expression"
 						}
 					}
 				},
@@ -302,6 +310,56 @@
 									"value": "@activity('Read Watermark Query').output.firstRow.watermark_value",
 									"type": "Expression"
 								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "CHECKING LOAD TYPE AND UPDATE WATERMARK",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Bronze To Silver",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(activity('Read table details').output.firstRow.load_type,'MERGE')",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "update Watermark",
+							"type": "Script",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSqlDB",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "update ctrl.watermark \nset watermark_value = SYSUTCDATETIME() \nwhere table_id =@{pipeline().parameters.table_id}",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
 							}
 						}
 					]
