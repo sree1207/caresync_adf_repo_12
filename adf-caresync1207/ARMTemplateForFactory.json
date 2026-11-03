@@ -560,7 +560,7 @@
 											{
 												"type": "Query",
 												"text": {
-													"value": "insert into ctrl.audit_log \n(adf_run_id,table_id,stage,status,start_time) \nvalues\n(@{pipeline().parameters.adf_run_id},@{item().table_id},'SOURCE_TO_SILVER','IN_PROGRESS',SYSUTCDATETIME())",
+													"value": "insert into ctrl.audit_log (adf_run_id,table_id,stage,status,start_time) \nvalues\n('@{pipeline().parameters.adf_run_id}','@{item().table_id}','SOURCE_TO_SILVER','IN_PROGRESS',SYSUTCDATETIME())",
 													"type": "Expression"
 												}
 											}
@@ -617,8 +617,7 @@
 						"defaultValue": "neon_postgres"
 					},
 					"adf_run_id": {
-						"type": "string",
-						"defaultValue": "a5"
+						"type": "string"
 					}
 				},
 				"variables": {
